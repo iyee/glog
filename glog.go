@@ -403,6 +403,8 @@ func init() {
 	flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
 
+	flag.Var(&duration, "rotate_duration", "time period to rotate log file, e.g.: 2hour - rotate per two hours; 1day - per day")
+
 	// Default stderrThreshold is ERROR.
 	logging.stderrThreshold = errorLog
 
@@ -802,9 +804,10 @@ func (l *loggingT) exit(err error) {
 type syncBuffer struct {
 	logger *loggingT
 	*bufio.Writer
-	file   *os.File
-	sev    severity
-	nbytes uint64 // The number of bytes written to this file
+	file     *os.File
+	sev      severity
+	nbytes   uint64 // The number of bytes written to this file
+	createat time.Time
 }
 
 func (sb *syncBuffer) Sync() error {
@@ -812,8 +815,9 @@ func (sb *syncBuffer) Sync() error {
 }
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
-	if sb.nbytes+uint64(len(p)) >= MaxSize {
-		if err := sb.rotateFile(time.Now()); err != nil {
+	now := time.Now()
+	if sb.nbytes+uint64(len(p)) >= MaxSize || (duration > 0 && now.After(sb.createat.Add(time.Duration(duration)))) {
+		if err := sb.rotateFile(now); err != nil {
 			sb.logger.exit(err)
 		}
 	}
@@ -848,6 +852,8 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 	fmt.Fprintf(&buf, "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg\n")
 	n, err := sb.file.Write(buf.Bytes())
 	sb.nbytes += uint64(n)
+	sb.createat = now
+
 	return err
 }
 

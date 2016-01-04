@@ -25,10 +25,57 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+var (
+	re = regexp.MustCompile(`^(\d+)(day|hour)$`)
+)
+
+func getRotateDuration(dur string) (time.Duration, error) {
+	if "" == dur {
+		return 0, nil
+	}
+
+	res := re.FindStringSubmatch(dur)
+	if nil == res {
+		return -1, errors.New("Wrong rotate_duration param, format example: 2hour - rotate per two hours; 1day - per day")
+	}
+
+	num := res[1]
+	unit := res[2]
+
+	i, _ := strconv.Atoi(num)
+	t := time.Duration(i) * time.Hour
+	if "day" == unit {
+		t = t * 24
+	}
+
+	return t, nil
+}
+
+type rotateDuration time.Duration
+
+func (d *rotateDuration) Set(value string) error {
+	var t time.Duration
+	var err error
+	if t, err = getRotateDuration(value); err != nil {
+		panic(err)
+	}
+	*d = (rotateDuration)(t)
+	fmt.Println("duration:", d.String())
+	return nil
+}
+
+func (d *rotateDuration) String() string {
+	return (time.Duration)(*d).String()
+}
+
+var duration rotateDuration
 
 // MaxSize is the maximum size of a log file in bytes.
 var MaxSize uint64 = 1024 * 1024 * 1800
