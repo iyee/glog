@@ -58,24 +58,24 @@ func getRotateDuration(dur string) (time.Duration, error) {
 	return t, nil
 }
 
-type rotateDuration time.Duration
+type interval time.Duration
 
-func (d *rotateDuration) Set(value string) error {
+func (d *interval) Set(value string) error {
 	var t time.Duration
 	var err error
 	if t, err = getRotateDuration(value); err != nil {
 		panic(err)
 	}
-	*d = (rotateDuration)(t)
-	fmt.Println("duration:", d.String())
+	*d = interval(t)
+
 	return nil
 }
 
-func (d *rotateDuration) String() string {
+func (d *interval) String() string {
 	return (time.Duration)(*d).String()
 }
 
-var duration rotateDuration
+var duration interval
 
 // MaxSize is the maximum size of a log file in bytes.
 var MaxSize uint64 = 1024 * 1024 * 1800

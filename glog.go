@@ -807,7 +807,7 @@ type syncBuffer struct {
 	file     *os.File
 	sev      severity
 	nbytes   uint64 // The number of bytes written to this file
-	createat time.Time
+	rotateat time.Time
 }
 
 func (sb *syncBuffer) Sync() error {
@@ -816,7 +816,7 @@ func (sb *syncBuffer) Sync() error {
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 	now := time.Now()
-	if sb.nbytes+uint64(len(p)) >= MaxSize || (duration > 0 && now.After(sb.createat.Add(time.Duration(duration)))) {
+	if sb.nbytes+uint64(len(p)) >= MaxSize || (duration > 0 && now.After(sb.rotateat)) {
 		if err := sb.rotateFile(now); err != nil {
 			sb.logger.exit(err)
 		}
@@ -852,7 +852,7 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 	fmt.Fprintf(&buf, "Log line format: [IWEF]mmdd hh:mm:ss.uuuuuu threadid file:line] msg\n")
 	n, err := sb.file.Write(buf.Bytes())
 	sb.nbytes += uint64(n)
-	sb.createat = now
+	sb.rotateat = now.Add(time.Duration(duration))
 
 	return err
 }
